@@ -1,5 +1,5 @@
 name:                tmapchan
-version:             0.0.0
+version:             0.0.1
 synopsis:            A time-ordered multimap which consumes values as you lookup
 -- description:
 homepage:            https://github.com/athanclark/tmapchan#readme

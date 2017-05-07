@@ -7,6 +7,7 @@ module Control.Concurrent.STM.TMapChan
   , delete, deleteAll
   , -- * Utils
     getTChan
+  , broadcast
   , cloneAt, cloneAll, cloneAllUniquely
   ) where
 
@@ -86,6 +87,13 @@ deleteAll t k = void (lookupAll t k)
 
 
 -- * Utils
+
+
+-- | Insert for every key
+broadcast :: Ord k => TMapChan k a -> a -> STM ()
+broadcast t@(TMapChan xs) a = do
+  ks <- Map.keys <$> readTVar xs
+  forM_ ks (\k -> insert t k a)
 
 
 -- | Creates a new one if it doesn't already exist

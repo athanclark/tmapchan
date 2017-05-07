@@ -91,6 +91,12 @@ getTChan (TMapChan t) k = do
       pure c'
     Just c' -> pure c'
 
+broadcast :: (Eq k, Hashable k) => TMapChan k a -> a -> STM ()
+broadcast t@(TMapChan xs) a = do
+  ks <- HashMap.keys <$> readTVar xs
+  forM_ ks (\k -> insert t k a)
+
+
 cloneAt :: (Eq k, Hashable k)
         => TMapChan k a
         -> k -- ^ key to clone /from/
