@@ -3,12 +3,12 @@ module Control.Concurrent.STM.TMapChan.Hash where
 import Prelude hiding (lookup)
 import Data.Hashable (Hashable)
 import Data.HashMap.Lazy (HashMap)
-import qualified Data.HashMap.Lazy as HashMap
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Control.Monad (void, forM_)
 import Control.Concurrent.STM (STM)
-import Control.Concurrent.STM.TChan (TChan, newTChan, writeTChan, readTChan, tryReadTChan, peekTChan, tryPeekTChan, unGetTChan, cloneTChan)
-import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar, modifyTVar)
+import Control.Concurrent.STM.TChan (TChan, newTChan, writeTChan, readTChan, tryReadTChan, peekTChan, tryPeekTChan, unGetTChan)
+import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar, modifyTVar')
 
 
 newtype TMapChan k a = TMapChan {runTMapChan :: TVar (HashMap k (TChan a))}
@@ -65,7 +65,7 @@ observeAll t k = do
   mNext <- tryObserve t k
   case mNext of
     Nothing -> pure []
-    Just next -> ((:) next) <$> observeAll t k
+    Just next -> (:) next <$> observeAll t k
 
 
 -- | Deletes the /next/ element in the map, if it exists. Doesn't block.
@@ -91,6 +91,10 @@ getTChan (TMapChan t) k = do
       pure c'
     Just c' -> pure c'
 
+setTChan :: (Eq k, Hashable k) => TMapChan k a -> k -> TChan a -> STM ()
+setTChan (TMapChan t) k c = modifyTVar' t (HashMap.insert k c)
+
+
 broadcast :: (Eq k, Hashable k) => TMapChan k a -> a -> STM ()
 broadcast t@(TMapChan xs) a = do
   ks <- HashMap.keys <$> readTVar xs
@@ -106,7 +110,7 @@ cloneAt t@(TMapChan xs) kFrom kTo = do
   as <- observeAll t kFrom
   c <- newTChan
   forM_ as (writeTChan c)
-  modifyTVar xs (HashMap.insert kTo c)
+  modifyTVar' xs (HashMap.insert kTo c)
 
 -- | Clones all the content for every key, by the key.
 cloneAll :: (Eq k, Hashable k) => TMapChan k a -> k -> STM ()
@@ -116,7 +120,7 @@ cloneAll t@(TMapChan xs) k = do
   forM_ (HashMap.keys as) $ \k' -> do
     as' <- observeAll t k'
     forM_ as' (writeTChan c)
-  modifyTVar xs (HashMap.insert k c)
+  modifyTVar' xs (HashMap.insert k c)
 
 -- | Clones all the content from every channel, and inserts the unique subset of them to `k`, in an unspecified order.
 cloneAllUniquely :: ( Eq k, Hashable k
@@ -131,7 +135,7 @@ cloneAllUniquely t@(TMapChan xs) k = do
   as' <- newTVar HashSet.empty
   forM_ (HashMap.keys as) $ \k' -> do
     as'More <- HashSet.fromList <$> observeAll t k'
-    modifyTVar as' (HashSet.union as'More)
+    modifyTVar' as' (HashSet.union as'More)
   as'All <- HashSet.toList <$> readTVar as'
   forM_ as'All (writeTChan c)
-  modifyTVar xs (HashMap.insert k c)
+  modifyTVar' xs (HashMap.insert k c)

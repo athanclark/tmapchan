@@ -7,18 +7,19 @@ module Control.Concurrent.STM.TMapChan
   , delete, deleteAll
   , -- * Utils
     getTChan
+  , setTChan
   , broadcast
   , cloneAt, cloneAll, cloneAllUniquely
   ) where
 
 import Prelude hiding (lookup)
 import Data.Map.Lazy (Map)
-import qualified Data.Map.Lazy as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Control.Monad (void, forM_)
 import Control.Concurrent.STM (STM)
-import Control.Concurrent.STM.TChan (TChan, newTChan, writeTChan, readTChan, tryReadTChan, peekTChan, tryPeekTChan, unGetTChan, cloneTChan)
-import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar, modifyTVar)
+import Control.Concurrent.STM.TChan (TChan, newTChan, writeTChan, readTChan, tryReadTChan, peekTChan, tryPeekTChan, unGetTChan)
+import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar, modifyTVar')
 
 
 newtype TMapChan k a = TMapChan {runTMapChan :: TVar (Map k (TChan a))}
@@ -74,7 +75,7 @@ observeAll t k = do
   mNext <- tryObserve t k
   case mNext of
     Nothing -> pure []
-    Just next -> ((:) next) <$> observeAll t k
+    Just next -> (:) next <$> observeAll t k
 
 
 -- | Deletes the /next/ element in the map, if it exists. Doesn't block.
@@ -107,6 +108,12 @@ getTChan (TMapChan t) k = do
       pure c'
     Just c' -> pure c'
 
+
+setTChan :: Ord k => TMapChan k a -> k -> TChan a -> STM ()
+setTChan (TMapChan t) k c = modifyTVar' t (Map.insert k c)
+
+
+
 cloneAt :: Ord k
         => TMapChan k a
         -> k -- ^ key to clone /from/
@@ -116,7 +123,7 @@ cloneAt t@(TMapChan xs) kFrom kTo = do
   as <- observeAll t kFrom
   c <- newTChan
   forM_ as (writeTChan c)
-  modifyTVar xs (Map.insert kTo c)
+  modifyTVar' xs (Map.insert kTo c)
 
 -- | Clones all the content for every key, by the key.
 cloneAll :: Ord k => TMapChan k a -> k -> STM ()
@@ -126,7 +133,7 @@ cloneAll t@(TMapChan xs) k = do
   forM_ (Map.keysSet as) $ \k' -> do
     as' <- observeAll t k'
     forM_ as' (writeTChan c)
-  modifyTVar xs (Map.insert k c)
+  modifyTVar' xs (Map.insert k c)
 
 -- | Clones all the content from every channel, and inserts the unique subset of them to `k`, in the order of their Ord instance
 cloneAllUniquely :: ( Ord k
@@ -141,7 +148,7 @@ cloneAllUniquely t@(TMapChan xs) k = do
   as' <- newTVar Set.empty
   forM_ (Map.keysSet as) $ \k' -> do
     as'More <- Set.fromList <$> observeAll t k'
-    modifyTVar as' (Set.union as'More)
+    modifyTVar' as' (Set.union as'More)
   as'All <- Set.toAscList <$> readTVar as'
   forM_ as'All (writeTChan c)
-  modifyTVar xs (Map.insert k c)
+  modifyTVar' xs (Map.insert k c)
