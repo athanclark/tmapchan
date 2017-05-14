@@ -79,6 +79,9 @@ deleteAll t k = void (lookupAll t k)
 
 -- * Utils
 
+keys :: TMapChan k a -> STM [k]
+keys (TMapChan m) = HashMap.keys <$> readTVar m
+
 
 -- | Creates a new one if it doesn't already exist
 getTChan :: (Eq k, Hashable k) => TMapChan k a -> k -> STM (TChan a)

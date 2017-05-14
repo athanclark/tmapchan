@@ -8,6 +8,7 @@ module Control.Concurrent.STM.TMapChan
   , -- * Utils
     getTChan
   , setTChan
+  , keys
   , broadcast
   , cloneAt, cloneAll, cloneAllUniquely
   ) where
@@ -23,6 +24,9 @@ import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar, writeTVar, modifyTV
 
 
 newtype TMapChan k a = TMapChan {runTMapChan :: TVar (Map k (TChan a))}
+
+keys :: TMapChan k a -> STM [k]
+keys (TMapChan m) = Map.keys <$> readTVar m
 
 newTMapChan :: STM (TMapChan k a)
 newTMapChan = TMapChan <$> newTVar Map.empty
