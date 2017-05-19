@@ -22,8 +22,8 @@ main = do
   (chan :: TMapChan Int Int) <- atomically newTMapChan
 
   insLookup <- testSpec "Insert/Lookup" $ do
-    (k,v1,v2) <- runIO $ atomically $ do
-      TMapChan.insert chan 0 0
+    (k,v1,v2) <- runIO $ do
+      atomically $ TMapChan.insert chan 0 0
       (0,0,) <$> TMapChan.lookup chan 0
     it "is available as it was put in" $ v1 == v2 && v1 == 0
 
@@ -32,8 +32,7 @@ main = do
       void $ async $ do
         threadDelay 1000000
         atomically $ TMapChan.insert chan 1 1
-      atomically $
-        (1,1,) <$> TMapChan.lookup chan 1
+      (1,1,) <$> TMapChan.lookup chan 1
     it "is available as it was put in, but later" $ v1 == v2 && v1 == 1
 
   defaultMain $ testGroup "TMapChan"

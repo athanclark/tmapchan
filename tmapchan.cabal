@@ -1,5 +1,5 @@
 name:                tmapchan
-version:             0.0.3
+version:             0.0.4
 synopsis:            An insert-ordered multimap (indexed FIFO) which consumes values as you lookup
 -- description:
 homepage:            https://github.com/athanclark/tmapchan#readme
